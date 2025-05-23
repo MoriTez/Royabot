@@ -1,0 +1,4 @@
+
+python-telegram-bot==20.3
+deepface==0.0.83
+opencv-python
