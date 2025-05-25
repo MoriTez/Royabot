@@ -5,12 +5,11 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 import datetime
 import random
-import json
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))  # شناسه تلگرام شما برای دریافت اطلاعات
+CHANNEL_USERNAME = "@soosssis"  # نام کانال برای چک کردن عضویت
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -56,47 +55,32 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("ربات RoyaBot می‌تواند چهره، تولد، و فال حافظ را تحلیل کند.")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # دریافت عکس و متادیتا و ذخیره کردن آن
-    photo = update.message.photo[-1]
-    file = await photo.get_file()
-    file_path = f"photos/{photo.file_unique_id}.jpg"
-    os.makedirs("photos", exist_ok=True)
-    await file.download_to_drive(file_path)
-
     user = update.message.from_user
-    metadata = {
-        "telegram_id": user.id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "file_id": photo.file_id,
-        "file_unique_id": photo.file_unique_id,
-        "file_path": file_path,
-        "date": update.message.date.isoformat(),
-        "chat_id": update.message.chat.id,
-        "caption": update.message.caption,
-    }
+    chat_id = update.message.chat_id
 
-    # ذخیره متادیتا در فایل JSON
-    os.makedirs("metadata", exist_ok=True)
-    meta_file = f"metadata/{photo.file_unique_id}.json"
-    with open(meta_file, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, ensure_ascii=False, indent=4)
+    try:
+        member = await context.bot.get_chat_member(CHANNEL_USERNAME, user.id)
+        if member.status not in ('member', 'creator', 'administrator'):
+            raise Exception("عضو کانال نیست")
+    except Exception:
+        await update.message.reply_text(
+            f"برای استفاده از این قابلیت، ابتدا باید عضو کانال {CHANNEL_USERNAME} باشید.\n"
+            f"لطفا عضو کانال شوید و دوباره عکس خود را ارسال کنید."
+        )
+        return
 
-    # ارسال اطلاعات به ادمین (تو)
-    admin_msg = (
-        f"عکس جدید دریافت شد:\n"
-        f"نام: {user.first_name} {user.last_name or ''}\n"
-        f"یوزرنیم: @{user.username}\n"
-        f"آیدی تلگرام: {user.id}\n"
-        f"چت آی‌دی: {update.message.chat.id}\n"
-        f"مسیر فایل: {file_path}\n"
-        f"تاریخ ارسال: {update.message.date.isoformat()}\n"
-    )
-    await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg)
+    # اگر عضو بود عکس را ذخیره کن
+    photos_dir = "photos"
+    os.makedirs(photos_dir, exist_ok=True)
 
-    # پاسخ به کاربر
-    await update.message.reply_text("عکس شما با موفقیت دریافت شد و در حال پردازش است. بزودی تحلیل کامل ارسال خواهد شد.")
+    photo_file = await update.message.photo[-1].get_file()
+    file_path = os.path.join(photos_dir, f"{user.id}_{photo_file.file_id}.jpg")
+    await photo_file.download_to_drive(file_path)
+
+    await update.message.reply_text("عکس شما با موفقیت دریافت شد. در حال پردازش...")
+
+    # تحلیل نمونه
+    await update.message.reply_text("تحلیل چهره و فرم بینی شما انجام شد (نسخه نمونه).")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
@@ -104,7 +88,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == 'فال':
         fal = random.choice(HAFEZ_FAL)
         await update.message.reply_text(f"فال حافظ شما:\n\n{fal}")
-
     elif len(text) == 10 and text[4] == '-' and text[7] == '-':
         try:
             date = datetime.datetime.strptime(text, "%Y-%m-%d").date()
@@ -115,7 +98,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception:
             await update.message.reply_text("فرمت تاریخ تولد نادرست است. لطفا به صورت YYYY-MM-DD وارد کنید.")
-
     else:
         await update.message.reply_text(
             "دستور شناخته نشده است.\nلطفا از منوی شیشه‌ای استفاده کنید یا دستور مناسب ارسال کنید."
