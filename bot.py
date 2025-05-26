@@ -1,50 +1,111 @@
-import logging import os from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-
-توکن رباتت رو اینجا بذار
+import os
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardRemove,
+    InputFile,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    CallbackQueryHandler,
+    ContextTypes,
+)
+from datetime import datetime
+from features import (
+    generate_motivation,
+    analyze_personality,
+    analyze_dream,
+    zodiac_sign,
+    countdown_to_100,
+)
 
 TOKEN = "7984089649:AAHk_xGlOxzfH4T1-OS3QJNnNVTFPeity2I"
 
-فعال‌کردن لاگ‌گیری برای دیباگ
+CHANNEL_USERNAME = "@soosssis"
+users = {}
 
-logging.basicConfig( format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO )
+keyboard = InlineKeyboardMarkup([
+    [InlineKeyboardButton("ارسال عکس چهره", callback_data="send_photo")],
+    [InlineKeyboardButton("تست شخصیت", callback_data="personality_test"),
+     InlineKeyboardButton("تحلیل خواب", callback_data="dream_test")],
+    [InlineKeyboardButton("فال روزانه", callback_data="fortune"),
+     InlineKeyboardButton("طالع تولد", callback_data="zodiac")],
+    [InlineKeyboardButton("جمله انگیزشی", callback_data="motivation")],
+])
 
-خوش‌آمدگویی و منوی شیشه‌ای اصلی
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    users[user_id] = {"photo_sent": False}
+    await update.message.reply_text(
+        "به RoyaBot خوش اومدی!\nبرای شروع از منوی زیر انتخاب کن:",
+        reply_markup=keyboard,
+    )
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): keyboard = [ [InlineKeyboardButton("ارسال عکس چهره", callback_data='send_photo')], [InlineKeyboardButton("تحلیل شخصیت", callback_data='personality')], [InlineKeyboardButton("طالع بینی و فال", callback_data='astro')], [InlineKeyboardButton("افزایش کیفیت عکس", callback_data='enhance')] ] reply_markup = InlineKeyboardMarkup(keyboard) await update.message.reply_text( "به RoyaBot خوش اومدی! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup )
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    data = query.data
 
-رسیدگی به انتخاب‌ها از منوی شیشه‌ای
+    if data == "send_photo":
+        await query.message.reply_text("لطفا یک عکس از چهره‌ات بفرست.")
+    elif data == "personality_test":
+        await query.message.reply_text(analyze_personality())
+    elif data == "dream_test":
+        await query.message.reply_text(analyze_dream())
+    elif data == "fortune":
+        await query.message.reply_text("فال امروزت: فرصت‌هایی در راهه، آماده باش!")
+    elif data == "zodiac":
+        await query.message.reply_text("روز، ماه و سال تولدت رو اینطوری بفرست: `DD-MM-YYYY`", parse_mode="Markdown")
+    elif data == "motivation":
+        await query.message.reply_text(generate_motivation())
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE): query = update.callback_query await query.answer()
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if users.get(user_id, {}).get("photo_sent"):
+        await update.message.reply_text(
+            "برای دریافت تحلیل کامل، عضو کانال زیر شو:\n" + CHANNEL_USERNAME,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("عضویت در کانال", url=f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}")]
+            ])
+        )
+        return
 
-if query.data == 'send_photo':
-    await query.edit_message_text("لطفاً یک عکس واضح از چهره‌ات بفرست تا تحلیل کنیم!")
-elif query.data == 'personality':
-    await query.edit_message_text("برای تحلیل شخصیت لطفاً به چند سوال جواب بده...")
-elif query.data == 'astro':
-    await query.edit_message_text("تاریخ تولدت رو بفرست (مثلاً: 1372/05/21) تا طالع‌بینی بشی!")
-elif query.data == 'enhance':
-    await query.edit_message_text("عکست رو بفرست تا کیفیتش رو بالا ببریم!")
+    photo = update.message.photo[-1]
+    file = await photo.get_file()
+    await file.download_to_drive("user_photo.jpg")
 
-پردازش عکس چهره
+    users[user_id]["photo_sent"] = True
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE): photo = update.message.photo[-1] file = await context.bot.get_file(photo.file_id) await file.download_to_drive("user_photo.jpg")
+    await update.message.reply_text(
+        "عکس شما با موفقیت دریافت شد. در حال پردازش...\n"
+        "تحلیل چهره و فرم بینی شما انجام شد (نسخه نمونه)."
+    )
 
-await update.message.reply_text(
-    "عکس شما با موفقیت دریافت شد. در حال پردازش...\n"
-    "تحلیل چهره، فرم بینی و وضعیت روحی انجام شد (نسخه آزمایشی).\n"
-    "برای دریافت تحلیل کامل، عضو کانال ما شوید: @soosssis"
-)
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    try:
+        day, month, year = map(int, text.split("-"))
+        birthdate = datetime(year, month, day)
+        zodiac, description = zodiac_sign(day, month)
+        countdown = countdown_to_100(birthdate)
+        await update.message.reply_text(
+            f"ماه تولد شما: {zodiac}\nویژگی‌ها: {description}\n{countdown}"
+        )
+    except:
+        await update.message.reply_text("فرمت تولد درست نیست. به صورت `DD-MM-YYYY` بفرست.", parse_mode="Markdown")
 
-راه‌اندازی ربات
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(TOKEN).build()
 
-async def main(): app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(button_handler))
-app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-
-print("ربات روشن است و منتظر پیام‌ها...")
-await app.run_polling()
-
-if name == 'main': import asyncio asyncio.run(main())
-
+    print("ربات در حال اجراست...")
+    app.run_polling()
