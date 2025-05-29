@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import random
 
 def analyze_personality():
     return "شما فردی مهربان، صادق و جست‌وجوگر هستید."
@@ -38,3 +39,13 @@ async def save_user_info(user, bot):
     os.makedirs("data", exist_ok=True)
     with open("data/users.txt", "a") as f:
         f.write(str(user.id) + "\n")
+
+def generate_motivation():
+    motivations = [
+        "هر روز یک فرصت جدیده برای بهتر شدن!",
+        "با تلاش مداوم، به هدف‌هات می‌رسی.",
+        "مثبت فکر کن، زندگی بهتر میشه.",
+        "موفقیت نتیجه تلاش و صبر است.",
+        "امروز بهترین روز برای شروع دوباره است."
+    ]
+    return random.choice(motivations)
