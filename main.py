@@ -1,6 +1,6 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from features import analyze_personality, analyze_dream, zodiac_sign, generate_motivation, countdown_to_100, save_user_info
 
@@ -22,8 +22,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = user.id
     await save_user_info(user, context.bot)
     await update.message.reply_text(
-        f"سلام {user.first_name} 👋 به ربات Roya خوش اومدی!
-از منوی زیر انتخاب کن:",
+        f"""سلام {user.first_name} 👋 به ربات Roya خوش اومدی!
+از منوی زیر انتخاب کن:""",
         reply_markup=keyboard
     )
 
@@ -60,9 +60,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         day, month, year = map(int, text.split("-"))
         zodiac, description = zodiac_sign(day, month)
         countdown = countdown_to_100(day, month, year)
-        await update.message.reply_text(f"♓️ ماه تولد شما: {zodiac}
-🔮 ویژگی‌ها: {description}
-{countdown}")
+        await update.message.reply_text(f"♓️ ماه تولد شما: {zodiac}\n🔮 ویژگی‌ها: {description}\n{countdown}")
     except:
         await update.message.reply_text("فرمت تولد اشتباهه. به صورت `DD-MM-YYYY` بفرست.", parse_mode="Markdown")
 
